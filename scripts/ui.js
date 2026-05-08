@@ -21,11 +21,74 @@ function injectSidebar() {
     </div>
     
     <div id="eco-main" class="eco-tab-content active">
-      <div style="font-size: 13px; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">
-        질의 횟수: <b id="dailyQueries">0</b>회<br>
-        절약한 토큰: <b id="savedTokens">0</b> Tokens<br>
-        <span style="color: #4ade80; font-size: 11px;">방금 절약: <b id="recentSavedTokens">0</b> Tokens</span>
+      
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #444; padding-bottom: 8px; margin-bottom: 12px;">
+        <div style="font-size: 13px; line-height: 1.6;">
+          질의 횟수: <b id="dailyQueries">0</b>회<br>
+          절약한 토큰: <b id="savedTokens">0</b> Tokens<br>
+          <span style="color: #4ade80; font-size: 11px;">방금 절약: <b id="recentSavedTokens">0</b> Tokens</span>
+        </div>
+        
+        <div class="eco-basis-tooltip-container">
+          <button id="eco-basis-btn">📊 산출 근거</button>
+          <div class="eco-basis-tooltip-content">
+            
+            <div class="eco-tooltip-sec">
+              <div class="eco-tooltip-title">1. 토큰 산출 방식</div>
+              <div class="eco-tooltip-desc">• 실제 모델 환경과 동일한 <b>tiktoken</b> 토크나이저 엔진을 적용하여 정밀 측정</div>
+            </div>
+
+            <div class="eco-tooltip-sec">
+              <div class="eco-tooltip-title">2. 환경 지표 산출 (1회 질의 당)</div>
+              <div class="eco-tooltip-desc">
+                • <span style="color: #facc15;">ChatGPT:</span> 평균 전력 0.34 Wh / 수자원 0.32 ml<br>
+                • <span style="color: #60a5fa;">Gemini:</span> 평균 전력 0.24 Wh / 수자원 0.26 ml
+              </div>
+            </div>
+
+            <div class="eco-tooltip-sec">
+              <div class="eco-tooltip-title">3. 질의 당 평균 토큰 계산</div>
+              <div class="eco-tooltip-desc">
+                • <b>WildChat</b> 데이터셋 대화 로그 100만 건 분석<br>
+                • 1회 대화(입출력) 평균: 513 Tokens<br>
+                • ➡️ 계산 명확성을 위해 <b>500 Tokens</b>으로 하향 적용
+              </div>
+            </div>
+
+            <div class="eco-tooltip-sec">
+              <div class="eco-tooltip-title">4. 1 토큰 당 산출 수치</div>
+              <div class="eco-tooltip-desc" style="background: #2b2d31; padding: 8px; border-radius: 6px; margin-top: 4px; border: 1px solid #3f4146;">
+                <div style="color: #facc15; margin-bottom: 4px; font-weight: bold;">[ChatGPT]</div>
+                <div style="font-size: 10.5px; display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span>⚡ 0.00068 Wh</span><span>💧 0.00064 ml</span><span>☁️ 0.00032 g</span>
+                </div>
+                <div style="color: #60a5fa; margin-bottom: 4px; font-weight: bold;">[Gemini]</div>
+                <div style="font-size: 10.5px; display: flex; justify-content: space-between;">
+                  <span>⚡ 0.00048 Wh</span><span>💧 0.00052 ml</span><span>☁️ 0.00006 g</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="eco-tooltip-sec">
+              <div class="eco-tooltip-title">5. 모델별 CO₂ 배출량 차이 원인</div>
+              <div class="eco-tooltip-desc" style="line-height: 1.5;">
+                • <b style="color: #60a5fa;">Gemini (낮음):</b> 전력 효율이 높은 자체 칩(TPU) 사용 및 구글 데이터 센터의 높은 친환경 재생에너지 비율 적용 수치<br>
+                • <b style="color: #facc15;">ChatGPT (높음):</b> 범용 GPU 아키텍처 사용, 전력량(0.34Wh)에 IEA 글로벌 평균 전력망 탄소집약도(0.475g/Wh)를 곱하여 보수적으로 추정
+              </div>
+            </div>
+
+            <div class="eco-tooltip-sec" style="margin-bottom: 0;">
+              <div class="eco-tooltip-title">6. 데이터 출처 (References)</div>
+              <div class="eco-tooltip-desc">
+                • <a href="https://blog.samaltman.com/the-gentle-singularity" target="_blank" class="eco-link" style="color: #facc15;">Sam Altman Blog (ChatGPT, 2025)</a><br>
+                • <a href="https://www.technologyreview.com/2025/08/21/1122288/google-gemini-ai-energy/" target="_blank" class="eco-link" style="color: #60a5fa;">MIT Tech Review (Gemini, 2025)</a>
+              </div>
+            </div>
+
+          </div>
+        </div>
       </div>
+
       <div style="display: flex; gap: 10px; margin-bottom: 10px;">
           <div class="eco-stat-item" style="color: #facc15; flex:1;">⚡ 전력<br><b id="savedEnergy">0</b> Wh</div>
           <div class="eco-stat-item" style="color: #60a5fa; flex:1;">💧 수자원<br><b id="savedWater">0</b> ml</div>
@@ -253,14 +316,48 @@ function injectSidebar() {
     
     .eco-custom-icon { width: 24px; height: 24px; object-fit: contain; vertical-align: middle; margin-bottom: 2px; }
 
+    /* 기존 도움말 툴팁 CSS */
     .eco-tooltip { position: relative; display: inline-block; flex-shrink: 0; margin-left: 4px; }
     .eco-help-icon { display: inline-flex; justify-content: center; align-items: center; width: 14px; height: 14px; background: #555; color: #fff; border-radius: 50%; font-size: 10px; font-weight: bold; cursor: help; line-height: 1; }
     .eco-tooltip .eco-tooltip-text { visibility: hidden; width: 220px; background-color: #1e1f22; color: #fff; font-weight: normal; line-height: 1.4; text-align: left; border-radius: 6px; padding: 8px; position: absolute; z-index: 10005; bottom: 130%; right: 0; opacity: 0; transition: opacity 0.2s; font-size: 11px; border: 1px solid #555; box-shadow: 0 4px 12px rgba(0,0,0,0.6); pointer-events: none; white-space: normal; }
     .eco-tooltip:hover .eco-tooltip-text { visibility: visible; opacity: 1; }
+
+    /* 산출 근거 툴팁 전용 CSS (클릭 토글 방식으로 변경) */
+    .eco-basis-tooltip-container { position: relative; display: inline-block; }
+    #eco-basis-btn { background: #35373c; border: 1px solid #555; color: #ccc; border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    #eco-basis-btn:hover { background: #4a4d53; color: #fff; }
+    
+    .eco-basis-tooltip-content { visibility: hidden; width: 320px; background-color: #1e1f22; color: #ddd; font-weight: normal; line-height: 1.5; text-align: left; border-radius: 8px; padding: 12px; position: absolute; z-index: 10005; top: 100%; right: 0; margin-top: 6px; opacity: 0; transition: opacity 0.2s; font-size: 11px; border: 1px solid #555; box-shadow: 0 4px 12px rgba(0,0,0,0.8); pointer-events: auto; white-space: normal; }
+    
+    /* Hover 대신 active 클래스로 표시 제어 */
+    .eco-basis-tooltip-content.active { visibility: visible; opacity: 1; }
+    
+    .eco-tooltip-sec { margin-bottom: 10px; }
+    .eco-tooltip-title { color: #fff; font-weight: bold; margin-bottom: 3px; font-size: 11.5px; }
+    .eco-tooltip-desc { color: #bbb; line-height: 1.4; font-size: 11px; }
   `;
 
   document.head.appendChild(style);
   document.body.appendChild(sidebar);
+
+  // 산출 근거 버튼 클릭 이벤트 로직 추가
+  const basisBtn = document.getElementById('eco-basis-btn');
+  const basisContent = document.querySelector('.eco-basis-tooltip-content');
+  
+  if (basisBtn && basisContent) {
+    // 버튼 클릭 시 툴팁 토글
+    basisBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // 이벤트 버블링 방지
+      basisContent.classList.toggle('active');
+    });
+
+    // 툴팁 외부 영역 클릭 시 툴팁 닫기
+    document.addEventListener('click', (e) => {
+      if (!basisContent.contains(e.target) && e.target !== basisBtn) {
+        basisContent.classList.remove('active');
+      }
+    });
+  }
 }
 
 function updateDashboard() {
@@ -274,12 +371,30 @@ function updateDashboard() {
     const recentElem = document.getElementById('recentSavedTokens');
     if (recentElem) recentElem.innerText = data.recentSavedTokens || 0;
 
-    const energyPerToken = 0.0024;
-    const waterPerToken = 0.0026;
-    const co2PerToken = 0.0003;
+    // --- 동적 환경 지표 할당 로직 시작 ---
+    let energyPerToken, waterPerToken, co2PerToken;
+    const currentHost = window.location.hostname;
 
-    document.getElementById('savedEnergy').innerText = (savedTokens * energyPerToken).toFixed(4);
-    document.getElementById('savedWater').innerText = (savedTokens * waterPerToken).toFixed(4);
-    document.getElementById('savedCO2').innerText = (savedTokens * co2PerToken).toFixed(4);
+    if (currentHost.includes("chatgpt.com")) {
+        // [ChatGPT 접속 시] Sam Altman Blog (2025) 기준 적용
+        energyPerToken = 0.00068;
+        waterPerToken = 0.00064;
+        co2PerToken = 0.000323;
+    } else if (currentHost.includes("gemini.google.com")) {
+        // [Gemini 접속 시] MIT Tech Review (2025) 기준 적용
+        energyPerToken = 0.00048;
+        waterPerToken = 0.00052;
+        co2PerToken = 0.00006;
+    } else {
+        // [그 외/기본] 양대 AI 평균 수치 적용
+        energyPerToken = 0.00058;
+        waterPerToken = 0.00058;
+        co2PerToken = 0.0002755;
+    }
+    // --- 동적 환경 지표 할당 로직 끝 ---
+
+    document.getElementById('savedEnergy').innerText = (savedTokens * energyPerToken).toFixed(5);
+    document.getElementById('savedWater').innerText = (savedTokens * waterPerToken).toFixed(5);
+    document.getElementById('savedCO2').innerText = (savedTokens * co2PerToken).toFixed(5);
   });
 }
