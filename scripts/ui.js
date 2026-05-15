@@ -2,18 +2,22 @@
 // 2. 화면 UI 주입 및 업데이트 로직
 // ==========================================
 
+// ChatGPT 및 Gemini 화면 우측에 에코 모드 사이드바를 주입하는 함수
 function injectSidebar() {
   if (document.getElementById('eco-sidebar')) return;
 
+  // 토글 버튼 생성
   const iconUrl = chrome.runtime.getURL('icon_ui.png');
   const toggleBtn = document.createElement('button');
   toggleBtn.id = 'eco-toggle-btn';
   toggleBtn.innerHTML = `<img src="${iconUrl}" class="eco-custom-icon"> 에코 모드`;
   document.body.appendChild(toggleBtn);
 
+  // 메인 사이드바 컨테이너 생성
   const sidebar = document.createElement('div');
   sidebar.id = 'eco-sidebar';
 
+  // 사이드바 내부 HTML 구조 (통계 패널, 모드 선택, 입력창, 가이드 등)
   sidebar.innerHTML = `
     <div class="eco-tabs">
       <button class="eco-tab-btn active" data-target="eco-main">🚀 메인 (통계/입력)</button>
@@ -270,6 +274,7 @@ function injectSidebar() {
     </div>
   `;
 
+  // UI 스타일(CSS) 주입
   const style = document.createElement('style');
   style.innerHTML = `
     #eco-sidebar, #eco-sidebar * { box-sizing: border-box !important; }
@@ -340,14 +345,14 @@ function injectSidebar() {
   document.head.appendChild(style);
   document.body.appendChild(sidebar);
 
-  // 산출 근거 버튼 클릭 이벤트 로직 추가
+  // [이벤트] 산출 근거 버튼 클릭 시 툴팁 토글 로직
   const basisBtn = document.getElementById('eco-basis-btn');
   const basisContent = document.querySelector('.eco-basis-tooltip-content');
   
   if (basisBtn && basisContent) {
     // 버튼 클릭 시 툴팁 토글
     basisBtn.addEventListener('click', (e) => {
-      e.stopPropagation(); // 이벤트 버블링 방지
+      e.stopPropagation(); // 이벤트 버블링 방지 (외부 클릭 이벤트와 충돌 막음)
       basisContent.classList.toggle('active');
     });
 
@@ -360,18 +365,22 @@ function injectSidebar() {
   }
 }
 
+// ESG 환경 통계(전력, 수자원, 탄소배출량) 업데이트 함수
 function updateDashboard() {
   if (!chrome.runtime || !chrome.runtime.id) return;
   
+  // Chrome Local Storage에서 저장된 절약 토큰 데이터 호출
   chrome.storage.local.get(['ecoQueries', 'totalSavedTokens', 'recentSavedTokens'], (data) => {
     document.getElementById('dailyQueries').innerText = data.ecoQueries || 0;
     const savedTokens = data.totalSavedTokens || 0;
     document.getElementById('savedTokens').innerText = savedTokens;
     
+    
     const recentElem = document.getElementById('recentSavedTokens');
     if (recentElem) recentElem.innerText = data.recentSavedTokens || 0;
 
-    // --- 동적 환경 지표 할당 로직 시작 ---
+    // --- [핵심] 동적 환경 지표 할당 로직 ---
+    // 각 AI 모델의 데이터 센터 인프라 특성에 맞춘 ESG 환산 계수 적용 (출처: Sam Altman Blog, MIT Tech Review)
     let energyPerToken, waterPerToken, co2PerToken;
     const currentHost = window.location.hostname;
 
@@ -391,8 +400,7 @@ function updateDashboard() {
         waterPerToken = 0.00058;
         co2PerToken = 0.0002755;
     }
-    // --- 동적 환경 지표 할당 로직 끝 ---
-
+    // 환산 수치 소수점 5자리 출력 적용
     document.getElementById('savedEnergy').innerText = (savedTokens * energyPerToken).toFixed(5);
     document.getElementById('savedWater').innerText = (savedTokens * waterPerToken).toFixed(5);
     document.getElementById('savedCO2').innerText = (savedTokens * co2PerToken).toFixed(5);

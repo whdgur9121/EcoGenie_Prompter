@@ -2,6 +2,8 @@
 // 3. 페이지 상태 분석 및 SPA 라우팅 제어
 // ==========================================
 
+// ChatGPT와 Gemini는 페이지 이동 시 새로고침이 일어나지 않는 SPA(Single Page Application)입니다.
+// 이를 감지하여 새 채팅창이 열릴 때마다 확장 프로그램 모드(초기 질문/이후 질문)를 전환하기 위한 라우터입니다.
 function initSPARouter() {
   const originalPushState = history.pushState;
   history.pushState = function() {
@@ -78,7 +80,7 @@ function checkPageStateAndSetMode() {
     if (!modeFollowup.classList.contains('active')) {
       modeFollowup.classList.add('active');
       modeInitial.classList.remove('active');
-      if (rawInput.value === TEMPLATE_TEXT) {
+      if (rawInput.value === "역할 :\n작업 :\n" || rawInput.value === "역할 :\n작업 :") {
         rawInput.value = "";
       }
     }
@@ -109,6 +111,7 @@ function checkPageStateAndSetMode() {
 // 4. 이벤트 연결 및 최적화 실행
 // ==========================================
 
+// UI 탭 전환 및 초기화 버튼 이벤트 바인딩
 function attachEvents() {
   document.getElementById('eco-toggle-btn').addEventListener('click', () => {
     const sidebar = document.getElementById('eco-sidebar');
@@ -135,7 +138,9 @@ function attachEvents() {
     }
     
     if (confirm('통계를 초기화하시겠습니까?')) {
-      chrome.storage.local.set({ ecoQueries: 0, totalSavedTokens: 0, recentSavedTokens: 0 }, updateDashboard);
+      chrome.storage.local.set({ ecoQueries: 0, totalSavedTokens: 0, recentSavedTokens: 0 }, () => {
+         if (typeof updateDashboard === 'function') updateDashboard();
+      });
     }
   });
 
@@ -177,7 +182,6 @@ function attachEvents() {
   setupGuideToggle('guide-model-gpt-btn', 'guide-model-gemini-btn', 'guide-model-gpt-content', 'guide-model-gemini-content');
   setupGuideToggle('guide-setting-gpt-btn', 'guide-setting-gemini-btn', 'guide-setting-gpt-content', 'guide-setting-gemini-content');
 
-
   rawInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -185,7 +189,8 @@ function attachEvents() {
     }
   });
 
-  document.getElementById('eco-optimizeBtn').addEventListener('click', () => {
+  // [핵심] 사용자가 '적용 및 전송' 버튼을 눌렀을 때의 메인 동작 (WASM 대기를 위해 async 적용)
+  document.getElementById('eco-optimizeBtn').addEventListener('click', async () => {
     if (!chrome.runtime || !chrome.runtime.id) {
         alert("🌱 업데이트가 감지되었습니다. 새로고침(F5) 해주세요!"); return;
     }
@@ -195,24 +200,39 @@ function attachEvents() {
 
     const isSysPromptEnabled = document.getElementById('eco-sys-checkbox').checked;
 
-    const originalTokens = estimateTokens(rawText);
-    const cleanedText = ecoPipeline.optimize(rawText);
-    const cleanedTokens = estimateTokens(cleanedText);
+    // 1. 최적화 전 토큰 계산
+    const originalTokens = window.estimateTokens ? window.estimateTokens(rawText) : Math.ceil(rawText.length * 1.2);
+    
+    const optBtn = document.getElementById('eco-optimizeBtn');
+    const originalBtnHTML = optBtn.innerHTML;
+    optBtn.innerText = "분석 중..."; 
+
+    // 2. WASM 파이프라인 비동기 대기 및 프롬프트 압축 실행
+    let cleanedText = rawText;
+    if (window.ecoPipeline) {
+        cleanedText = await window.ecoPipeline.optimize(rawText);
+    }
+    
+    // 3. 최적화 후 토큰 계산
+    const cleanedTokens = window.estimateTokens ? window.estimateTokens(cleanedText) : Math.ceil(cleanedText.length * 1.2);
+    optBtn.innerHTML = originalBtnHTML;
     
     let finalText = cleanedText;
     let actualCleanedTokens = cleanedTokens;
     
+    // 안전장치: 압축 로직을 거쳤는데 오히려 토큰이 늘어난 경우(기호 처리 오류 등) 원본을 유지합니다.
     if (cleanedTokens > originalTokens) {
       finalText = rawText; actualCleanedTokens = originalTokens; 
     }
 
     let sysPromptAttached = false;
     if (isSysPromptEnabled && originalTokens >= 15) {
-      finalText += ecoPipeline.getSystemPrompt();
+      finalText += window.ecoPipeline ? window.ecoPipeline.getSystemPrompt() : "\n\n[Sys: No fluff. Markdown only.]";
       sysPromptAttached = true;
     }
 
     const inputTokenSavings = Math.max(0, originalTokens - actualCleanedTokens);
+    // ChatGPT(textarea)와 Gemini(contenteditable div)의 DOM 구조 차이 감지
     const isChatGPT = window.location.hostname.includes('chatgpt.com') || window.location.hostname.includes('chat.openai.com');
     
     let inputBox = isChatGPT ? document.querySelector('#prompt-textarea') 
@@ -222,6 +242,8 @@ function attachEvents() {
 
     inputBox.focus();
     
+    // [텍스트 주입 로직] 
+    // React 기반의 입력창은 단순 value 변경 이벤트를 감지하지 못하므로, Native Setter와 DispatchEvent를 사용해 강제로 인식시킵니다.
     if (inputBox.tagName === 'TEXTAREA') {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
       if (nativeInputValueSetter) nativeInputValueSetter.call(inputBox, finalText);
@@ -230,12 +252,17 @@ function attachEvents() {
       inputBox.dispatchEvent(new Event('input', { bubbles: true }));
       inputBox.dispatchEvent(new Event('change', { bubbles: true })); 
     } else {
-      document.execCommand('selectAll', false, null); 
-      document.execCommand('delete', false, null);
+      // Gemini의 ContentEditable 요소는 Document 명령어로 텍스트를 커서 위치에 삽입해야 에러가 나지 않습니다.
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(inputBox);
+      selection.removeAllRanges();
+      selection.addRange(range);
       document.execCommand('insertText', false, finalText);
       inputBox.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
+    // 전송 버튼 찾기 및 자동 클릭 함수 (렌더링 딜레이를 고려한 재귀 호출 로직)
     function attemptSend(retries) {
       let sendBtn = isChatGPT ? document.querySelector('button[data-testid="send-button"]') : document.querySelector('button[aria-label*="보내기"], button[aria-label*="Send"]');
       if (sendBtn && !sendBtn.disabled) {
@@ -247,6 +274,7 @@ function attachEvents() {
       }
     }
 
+    // 전송 완료 후 로컬 스토리지에 절약 통계 업데이트 및 응답 길이 관찰 시작
     function finalizeEcoTransaction() {
       chrome.storage.local.get(['ecoQueries', 'totalSavedTokens', 'recentSavedTokens'], (data) => {
         chrome.storage.local.set({
@@ -254,13 +282,16 @@ function attachEvents() {
           totalSavedTokens: (data.totalSavedTokens || 0) + inputTokenSavings,
           recentSavedTokens: inputTokenSavings
         }, () => {
-          updateDashboard();
+          if (typeof updateDashboard === 'function') updateDashboard();
           const selector = isChatGPT ? '.markdown' : 'message-content, .model-response-text';
           const blockCountAtSend = document.querySelectorAll(selector).length;
           observeResponseCompletion(isChatGPT, blockCountAtSend, sysPromptAttached);
           
-          if (modeInitial.classList.contains('active')) rawInput.value = TEMPLATE_TEXT;
-          else rawInput.value = "";
+          if (document.getElementById('mode-initial').classList.contains('active')) {
+             rawInput.value = TEMPLATE_TEXT;
+          } else {
+             rawInput.value = "";
+          }
           
           document.getElementById('mode-followup').click();
         });
@@ -271,10 +302,14 @@ function attachEvents() {
   });
 }
 
+// LLM의 응답 출력 완료 여부를 관찰하는 함수 (출력 토큰 절약량 계산용)
 function observeResponseCompletion(isChatGPT, blockCountAtSend, applyOutputSaving) {
   let lastLength = 0, stableCount = 0, newBlockFound = false, currentIntervals = 0;
   const maxWaitIntervals = 240, selector = isChatGPT ? '.markdown' : 'message-content, .model-response-text';
+  const OUTPUT_SAVING_RATIO = 0.0901;
 
+  // 스트리밍 응답의 특성상 DOM 변화(Mutation)가 너무 잦아 오작동할 수 있으므로, 
+  // 500ms 단위로 텍스트 길이를 체크하여 성장이 멈추면(stableCount >= 4) 응답 완료로 간주합니다.
   const checkInterval = setInterval(() => {
     if (!chrome.runtime || !chrome.runtime.id) { clearInterval(checkInterval); return; }
     currentIntervals++;
@@ -296,7 +331,7 @@ function observeResponseCompletion(isChatGPT, blockCountAtSend, applyOutputSavin
       if (stableCount >= 4) { 
         clearInterval(checkInterval);
         if (applyOutputSaving) {
-          const actualOutputTokens = estimateTokens(lastBlock.innerText);
+          const actualOutputTokens = window.estimateTokens ? window.estimateTokens(lastBlock.innerText) : Math.ceil(lastBlock.innerText.length * 1.2);
           const expectedTokens = actualOutputTokens / (1 - OUTPUT_SAVING_RATIO);
           const outputTokenSavings = Math.floor(expectedTokens - actualOutputTokens);
 
@@ -305,7 +340,9 @@ function observeResponseCompletion(isChatGPT, blockCountAtSend, applyOutputSavin
               chrome.storage.local.set({
                 totalSavedTokens: (data.totalSavedTokens || 0) + outputTokenSavings,
                 recentSavedTokens: (data.recentSavedTokens || 0) + outputTokenSavings
-              }, updateDashboard);
+              }, () => {
+                  if (typeof updateDashboard === 'function') updateDashboard();
+              });
             });
           }
         }
@@ -314,10 +351,18 @@ function observeResponseCompletion(isChatGPT, blockCountAtSend, applyOutputSavin
   }, 500);
 }
 
-// 메인 실행
-setTimeout(() => {
-  injectSidebar();
+// ==========================================
+// 5. 메인 실행 로직 (WASM 비동기 초기화 적용)
+// ==========================================
+setTimeout(async () => {
+  if (typeof injectSidebar === 'function') injectSidebar();
+  
+  // [핵심] pipeline.js의 WASM 초기화를 비동기로 기다린 후 이벤트를 연결합니다.
+  if (window.ecoPipeline) {
+    await window.ecoPipeline.init();
+  }
+  
   attachEvents();
-  updateDashboard();
-  initSPARouter();
+  if (typeof updateDashboard === 'function') updateDashboard();
+  if (typeof initSPARouter === 'function') initSPARouter();
 }, 3000);
