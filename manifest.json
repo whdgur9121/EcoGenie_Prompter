@@ -1,7 +1,7 @@
 {
   "name": "EcoGenie_Prompter",
   "short_name": "EcoGenie",
-  "version": "1.4",
+  "version": "3.0.1",
   "description": "불필요한 프롬프트를 최적화해 토큰 낭비를 막고, AI 데이터 센터의 전력 소비와 탄소 배출을 감축하는 친환경 ESG 확장 프로그램입니다.",
   "manifest_version": 3,
   "permissions": [
@@ -20,7 +20,9 @@
       ],
       "js": [
         "scripts/tokenizer.bundle.js",
+        "scripts/v3/ort.min.js",
         "scripts/pipeline.js",
+        "scripts/v3/v3-pipeline.js",
         "scripts/ui.js",
         "scripts/app.js"
       ]
@@ -34,6 +36,13 @@
         "scripts/garu_wasm_bg.wasm",   
         "scripts/base.gmdl",           
         "scripts/cnn2.bin",
+        "scripts/v3/ort-wasm-simd-threaded.wasm",
+        "scripts/v3/ort-wasm-simd-threaded.jsep.mjs",
+        "scripts/v3/ort-wasm-simd-threaded.jsep.wasm",
+        "scripts/v3/character_model.onnx",
+        "scripts/v3/character_vocab.json",
+        "scripts/v3/semantic_model.onnx",
+        "scripts/v3/tokenizer.json",
         "scripts/snippets/*"
       ],
       "matches": [
